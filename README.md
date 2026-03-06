@@ -122,4 +122,4 @@ MIT License — feel free to use, modify, and share.
 
 ---
 
-<p align="center">Built with ❤️ by <a href="https://github.com/yourusername">yourusername</a></p>
+<p align="center">Built with ❤️ by <a href="https://github.com/yagamieren09">Karthik R</a></p>
