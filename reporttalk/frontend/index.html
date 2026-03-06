@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReportTalk — Understand Your Lab Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- PDF.js for PDF preview -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- jsPDF for export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{--bg:#F8F6F1;--bg-secondary:#FFFFFF;--ink:#111010;--ink-secondary:#5A5650;--border:#E8E2D8;--accent:#1A5C3A;--accent-hover:#145230;--card-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);--green:#166534;--green-bg:#F0FDF4;--green-border:#BBF7D0;--yellow:#854D0E;--yellow-bg:#FEFCE8;--yellow-border:#FEF08A;--red:#991B1B;--red-bg:#FFF1F2;--red-border:#FECDD3;--upload-bg:#FAFAF8}
+  [data-theme="dark"]{--bg:#0C0C0E;--bg-secondary:#141418;--ink:#F0F0F0;--ink-secondary:#888899;--border:rgba(255,255,255,0.07);--accent:#34D399;--accent-hover:#2EBD87;--card-shadow:0 1px 3px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3);--green:#34D399;--green-bg:rgba(52,211,153,0.08);--green-border:rgba(52,211,153,0.2);--yellow:#FBBF24;--yellow-bg:rgba(251,191,36,0.08);--yellow-border:rgba(251,191,36,0.2);--red:#F87171;--red-bg:rgba(248,113,113,0.08);--red-border:rgba(248,113,113,0.2);--upload-bg:rgba(255,255,255,0.02)}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;transition:background-color 0.3s ease,border-color 0.3s ease,color 0.2s ease}
+  body{font-family:'Geist',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+  nav{position:fixed;top:0;left:0;right:0;height:56px;background:var(--bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+  .nav-logo{font-family:'Instrument Serif',serif;font-size:20px;color:var(--ink);letter-spacing:-0.01em;display:flex;align-items:center;gap:8px}
+  .nav-right{display:flex;align-items:center;gap:10px}
+  #themeToggle{width:36px;height:36px;border:1px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:transform 0.3s ease!important}
+  #themeToggle:hover{border-color:var(--accent);background:var(--green-bg);transform:rotate(20deg)}
+  .server-status{font-family:'Geist Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--ink-secondary);display:flex;align-items:center;gap:5px}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--border)}
+  .status-dot.online{background:#22c55e}
+  .status-dot.offline{background:#ef4444}
+  main{max-width:760px;margin:0 auto;padding:88px 24px 80px}
+  .screen{display:none}.screen.active{display:block}#loadingScreen.active{display:flex}
+  .hero{margin-bottom:32px;text-align:center}
+  .hero-eyebrow{font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+  .hero h1{font-family:'Instrument Serif',serif;font-size:clamp(34px,6vw,54px);line-height:1.05;letter-spacing:-0.025em;margin-bottom:12px}
+  .hero h1 em{font-style:italic;color:var(--accent)}
+  .hero p{font-weight:300;font-size:16px;color:var(--ink-secondary);line-height:1.65}
+  .upload-zone{border:2px dashed var(--border);border-radius:16px;min-height:200px;background:var(--upload-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:40px 24px;position:relative;overflow:hidden;transition:all 0.2s ease!important;margin-bottom:16px}
+  .upload-zone:hover{border-color:var(--accent);border-style:solid;background:var(--green-bg)}
+  .upload-zone.drag-over{transform:scale(1.01);border-color:var(--accent);border-style:solid;background:var(--green-bg)}
+  .upload-zone.has-file{border-style:solid;border-color:var(--accent);padding:0;min-height:220px}
+  .upload-icon-wrap{width:52px;height:52px;border:1.5px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--bg-secondary);margin-bottom:16px;font-size:22px}
+  .upload-zone:hover .upload-icon-wrap{border-color:var(--accent);background:var(--green-bg)}
+  .upload-title{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:6px;text-align:center}
+  .upload-sub{font-size:13px;color:var(--ink-secondary);font-weight:300;text-align:center}
+  .file-types{display:flex;gap:8px;margin-top:12px}
+  .file-type-badge{font-family:'Geist Mono',monospace;font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);color:var(--ink-secondary);background:var(--bg-secondary)}
+  #fileInput{display:none}
+  .preview-wrapper{width:100%;height:220px;position:relative;display:none;animation:fadeIn 0.35s ease both}
+  .preview-wrapper img,.preview-wrapper canvas{width:100%;height:100%;object-fit:cover;border-radius:14px;display:block}
+  .preview-bar{position:absolute;bottom:10px;left:10px;right:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border-radius:8px;padding:7px 12px}
+  .preview-name{font-family:'Geist Mono',monospace;font-size:11px;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+  .preview-size{font-family:'Geist Mono',monospace;font-size:11px;color:rgba(255,255,255,0.55)}
+  .preview-type{font-family:'Geist Mono',monospace;font-size:10px;padding:2px 7px;border-radius:5px;background:var(--accent);color:#fff;margin-left:6px;flex-shrink:0}
+  #analyseBtn{width:100%;height:52px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:'Geist',sans-serif;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:0.01em;transition:all 0.2s ease!important;display:none;margin-bottom:12px}
+  #analyseBtn:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 8px 28px rgba(26,92,58,0.28)}
+  [data-theme="dark"] #analyseBtn:hover{box-shadow:0 8px 28px rgba(52,211,153,0.22)}
+  #demoBtn{width:100%;height:44px;background:transparent;color:var(--accent);border:1.5px dashed var(--accent);border-radius:12px;font-family:'Geist',sans-serif;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:16px;transition:all 0.2s ease!important}
+  #demoBtn:hover{background:var(--green-bg)}
+  .trust-bar{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--ink-secondary);opacity:0.7;flex-wrap:wrap}
+  .trust-sep{opacity:0.4}
+  #loadingScreen{flex-direction:column;align-items:center;justify-content:center;min-height:420px;text-align:center;animation:fadeIn 0.3s ease both}
+  .spinner{width:44px;height:44px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.75s linear infinite;margin:0 auto 24px}
+  .loading-msg{font-size:16px;font-weight:300;color:var(--ink-secondary);transition:opacity 0.3s ease!important;min-height:26px}
+  #resultsScreen{animation:fadeIn 0.4s ease both}
+  .results-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:28px}
+  .results-title{font-family:'Instrument Serif',serif;font-size:clamp(26px,4vw,32px);color:var(--ink);letter-spacing:-0.02em;margin-bottom:5px}
+  .results-subtitle{font-size:14px;font-weight:300;color:var(--ink-secondary)}
+  .results-actions{display:flex;gap:8px;flex-shrink:0;align-self:flex-start;margin-top:4px;flex-wrap:wrap}
+  .btn-ghost{height:38px;padding:0 16px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--ink-secondary);font-family:'Geist',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.2s ease!important}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--green-bg)}
+  .btn-export{height:38px;padding:0 16px;border:1px solid var(--accent);border-radius:10px;background:var(--accent);color:#fff;font-family:'Geist',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all 0.2s ease!important;display:flex;align-items:center;gap:6px}
+  .btn-export:hover{background:var(--accent-hover);transform:translateY(-1px)}
+  .summary-card{background:var(--green-bg);border:1px solid var(--green-border);border-left:3px solid var(--accent);border-radius:16px;padding:22px 24px 22px 26px;margin-bottom:28px;animation:fadeUp 0.4s ease both}
+  .summary-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .summary-text{font-size:15px;line-height:1.75;color:var(--ink)}
+  .test-card{background:var(--bg-secondary);border:1px solid var(--border);border-left-width:3px;border-radius:16px;padding:22px 24px 22px 26px;box-shadow:var(--card-shadow);transition:transform 0.2s ease,box-shadow 0.2s ease!important;animation:fadeUp 0.4s ease both;margin-bottom:14px}
+  .test-card:hover{transform:translateY(-2px);box-shadow:0 4px 24px rgba(0,0,0,0.09)}
+  [data-theme="dark"] .test-card:hover{box-shadow:0 4px 24px rgba(0,0,0,0.5)}
+  .test-card:nth-child(1){animation-delay:.05s}.test-card:nth-child(2){animation-delay:.10s}.test-card:nth-child(3){animation-delay:.15s}.test-card:nth-child(4){animation-delay:.20s}.test-card:nth-child(5){animation-delay:.25s}.test-card:nth-child(6){animation-delay:.30s}.test-card:nth-child(7){animation-delay:.35s}.test-card:nth-child(8){animation-delay:.40s}.test-card:nth-child(9){animation-delay:.45s}.test-card:nth-child(10){animation-delay:.50s}
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .card-plain-name{font-size:16px;font-weight:500;color:var(--ink);line-height:1.3;margin-bottom:4px}
+  .card-original-name{font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink-secondary);text-transform:uppercase;letter-spacing:0.1em}
+  .severity-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:5px 11px;border-radius:20px;border:1px solid;white-space:nowrap;flex-shrink:0;line-height:1}
+  .card-divider{height:1px;background:var(--border);margin:14px 0}
+  .card-value-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .card-value{font-family:'Geist Mono',monospace;font-size:20px;font-weight:500;color:var(--ink)}
+  .card-range{font-size:13px;color:var(--ink-secondary)}
+  .status-pill{display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;border:1px solid}
+  .card-explanation{font-size:14px;line-height:1.75;color:var(--ink-secondary);margin-top:14px}
+  .c-green{border-left-color:var(--green)!important}.c-yellow{border-left-color:var(--yellow)!important}.c-red{border-left-color:var(--red)!important}
+  .pill-green{color:var(--green);background:var(--green-bg);border-color:var(--green-border)}
+  .pill-yellow{color:var(--yellow);background:var(--yellow-bg);border-color:var(--yellow-border)}
+  .pill-red{color:var(--red);background:var(--red-bg);border-color:var(--red-border)}
+  .error-card{border-radius:16px;padding:32px 28px;text-align:center;animation:fadeUp 0.4s ease both}
+  .error-card.type-not-report{background:var(--yellow-bg);border:1px solid var(--yellow-border);border-left:3px solid var(--yellow)}
+  .error-card.type-api{background:var(--red-bg);border:1px solid var(--red-border);border-left:3px solid var(--red)}
+  .error-icon{font-size:36px;margin-bottom:14px}.error-title{font-size:18px;font-weight:500;color:var(--ink);margin-bottom:8px}
+  .error-msg{font-size:13px;color:var(--ink-secondary);line-height:1.65;margin-bottom:22px;word-break:break-word}
+  .btn-retry{height:46px;padding:0 28px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s ease!important}
+  .btn-retry:hover{background:var(--accent-hover);transform:translateY(-1px)}
+  footer{text-align:center;margin-top:64px;padding:28px 0 40px;border-top:1px solid var(--border)}
+  .footer-name{font-family:'Instrument Serif',serif;font-size:14px;color:var(--ink-secondary);margin-bottom:5px;opacity:0.6}
+  .footer-disc{font-size:11px;color:var(--ink-secondary);opacity:0.45;line-height:1.6}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  @media(max-width:600px){main{padding:76px 16px 60px}.hero h1{font-size:32px}.upload-zone{min-height:160px;padding:28px 16px}.preview-wrapper{height:180px}.test-card{padding:16px 18px 16px 20px}.card-value{font-size:17px}.results-header{flex-direction:column;gap:10px}.results-actions{width:100%}.btn-ghost,.btn-export{flex:1;justify-content:center}nav{padding:0 16px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">💊 ReportTalk</div>
+  <div class="nav-right">
+    <div class="server-status" id="serverStatus">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">checking...</span>
+    </div>
+    <button id="themeToggle">🌙</button>
+  </div>
+</nav>
+
+<main>
+  <!-- LANDING -->
+  <section id="landingScreen" class="screen active">
+    <div class="hero">
+      <p class="hero-eyebrow">Secure Backend · PDF Support · Free</p>
+      <h1>Understand your<br><em>lab report.</em></h1>
+      <p>Plain English. No medical degree needed.<br>Upload an image or PDF and get results instantly.</p>
+    </div>
+
+    <div class="upload-zone" id="uploadZone">
+      <div id="uploadPrompt" style="display:flex;flex-direction:column;align-items:center">
+        <div class="upload-icon-wrap">⬆</div>
+        <p class="upload-title">Drop your report here</p>
+        <p class="upload-sub">or click to upload</p>
+        <div class="file-types">
+          <span class="file-type-badge">JPG</span>
+          <span class="file-type-badge">PNG</span>
+          <span class="file-type-badge">PDF</span>
+        </div>
+      </div>
+      <div class="preview-wrapper" id="previewWrapper">
+        <canvas id="previewCanvas" style="display:none"></canvas>
+        <img id="previewImg" src="" alt="Preview" style="display:none">
+        <div class="preview-bar">
+          <span class="preview-name" id="previewName"></span>
+          <span style="display:flex;align-items:center">
+            <span class="preview-size" id="previewSize"></span>
+            <span class="preview-type" id="previewType"></span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg,application/pdf">
+
+    <button id="analyseBtn">Analyse Report →</button>
+    <button id="demoBtn" onclick="loadDemo()">✨ Try Demo Report</button>
+
+    <div class="trust-bar">
+      <span>🔒 API key hidden on server</span>
+      <span class="trust-sep">·</span>
+      <span>📄 PDF supported</span>
+      <span class="trust-sep">·</span>
+      <span>⚡ Instant</span>
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <section id="loadingScreen" class="screen">
+    <div class="spinner"></div>
+    <p class="loading-msg" id="loadingMsg">Reading your report...</p>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="resultsScreen" class="screen">
+    <div class="results-header">
+      <div>
+        <h2 class="results-title">Your Results</h2>
+        <p class="results-subtitle" id="resultsSubtitle"></p>
+      </div>
+      <div class="results-actions">
+        <button class="btn-export" onclick="exportPDF()" id="exportBtn">📥 Save as PDF</button>
+        <button class="btn-ghost" onclick="resetApp()">↩ New Report</button>
+      </div>
+    </div>
+    <div class="summary-card" id="summaryCard">
+      <div class="summary-label"><span>🩺</span> Overall Picture</div>
+      <p class="summary-text" id="summaryText"></p>
+    </div>
+    <div id="cardsGrid"></div>
+  </section>
+
+  <!-- ERROR -->
+  <section id="errorScreen" class="screen">
+    <div class="error-card" id="errorCard">
+      <div class="error-icon" id="errorIcon">⚠️</div>
+      <div class="error-title" id="errorTitle"></div>
+      <p class="error-msg" id="errorMsg"></p>
+      <button class="btn-retry" onclick="resetApp()">Try Again</button>
+    </div>
+  </section>
+
+  <footer>
+    <p class="footer-name">ReportTalk</p>
+    <p class="footer-disc">For educational purposes only · Always consult a qualified doctor for medical decisions.</p>
+  </footer>
+</main>
+
+<script>
+// PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const API_BASE = window.location.origin; // same server
+
+// ── THEME ──
+const themeToggle = document.getElementById('themeToggle');
+let isDark = localStorage.getItem('theme') === 'dark';
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  themeToggle.textContent = isDark ? '☀️' : '🌙';
+}
+themeToggle.addEventListener('click', () => { isDark = !isDark; localStorage.setItem('theme', isDark ? 'dark' : 'light'); applyTheme(); });
+applyTheme();
+
+// ── SERVER STATUS ──
+async function checkServer() {
+  try {
+    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      document.getElementById('statusDot').className = 'status-dot online';
+      document.getElementById('statusText').textContent = 'server online';
+    } else throw new Error();
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot offline';
+    document.getElementById('statusText').textContent = 'server offline';
+  }
+}
+checkServer();
+
+// ── UPLOAD ──
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const analyseBtn = document.getElementById('analyseBtn');
+let selectedFile = null;
+
+uploadZone.addEventListener('click', e => { if (!e.target.closest('#previewWrapper')) fileInput.click(); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', e => { if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('drag-over'); });
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+async function handleFile(file) {
+  selectedFile = file;
+  const isPDF = file.type === 'application/pdf';
+  document.getElementById('previewName').textContent = file.name;
+  document.getElementById('previewSize').textContent = fmtBytes(file.size);
+  document.getElementById('previewType').textContent = isPDF ? 'PDF' : 'IMG';
+
+  if (isPDF) {
+    // Render first page of PDF as preview
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdfDoc.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.getElementById('previewCanvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      canvas.style.display = 'block';
+      document.getElementById('previewImg').style.display = 'none';
+    } catch(e) {
+      // Fallback: show PDF icon
+      document.getElementById('previewCanvas').style.display = 'none';
+      const img = document.getElementById('previewImg');
+      img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f0fdf4"/><text y="55" x="50" text-anchor="middle" font-size="40">📄</text></svg>';
+      img.style.display = 'block';
+    }
+  } else {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('previewImg').src = ev.target.result;
+      document.getElementById('previewImg').style.display = 'block';
+      document.getElementById('previewCanvas').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById('uploadPrompt').style.display = 'none';
+  document.getElementById('previewWrapper').style.display = 'block';
+  uploadZone.classList.add('has-file');
+  analyseBtn.style.display = 'block';
+}
+
+function fmtBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+analyseBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  await runAnalysis();
+});
+
+// ── SCREENS ──
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name + 'Screen').classList.add('active');
+}
+
+// ── LOADING MESSAGES ──
+const MSGS = ['Reading your report...', 'Identifying test values...', 'Understanding what they mean...', 'Preparing your results...'];
+let msgTimer = null, msgFader = null;
+function startMsgs() {
+  let i = 0; const el = document.getElementById('loadingMsg');
+  el.style.opacity = '1'; el.textContent = MSGS[0];
+  msgTimer = setInterval(() => {
+    el.style.opacity = '0';
+    msgFader = setTimeout(() => { i = (i+1) % MSGS.length; el.textContent = MSGS[i]; el.style.opacity = '1'; }, 300);
+  }, 2500);
+}
+function stopMsgs() { clearInterval(msgTimer); clearTimeout(msgFader); }
+
+// ── ANALYSIS ──
+async function runAnalysis() {
+  showScreen('loading'); startMsgs();
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    const response = await fetch(`${API_BASE}/analyse`, { method: 'POST', body: formData });
+    stopMsgs();
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      showError('api', 'Something went wrong', err.error || 'Please try again.');
+      return;
+    }
+
+    const result = await response.json();
+    if (!result.is_medical_report) {
+      showError('not-report', 'Not a medical report', 'Please upload a clear photo or PDF of a blood test or lab report.');
+      return;
+    }
+    renderResults(result);
+  } catch(e) {
+    stopMsgs();
+    showError('api', 'Cannot reach server', 'Make sure the backend server is running. Check the status indicator in the top right.');
+  }
+}
+
+// ── RENDER ──
+const ARROW = { LOW: '▼', HIGH: '▲', NORMAL: '—' };
+const EMOJI = { green: '🟢', yellow: '🟡', red: '🔴' };
+let lastResults = null;
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderResults(data) {
+  lastResults = data;
+  document.getElementById('summaryText').textContent = data.overall_summary || '';
+  const total = data.tests.length, attn = data.tests.filter(t => t.severity !== 'green').length;
+  const parts = [];
+  if (total > 0) parts.push(`${total} test${total !== 1 ? 's' : ''}`);
+  if (attn > 0) parts.push(`${attn} need${attn === 1 ? 's' : ''} attention`);
+  if (total - attn > 0) parts.push(`${total - attn} normal`);
+  document.getElementById('resultsSubtitle').textContent = parts.join(' · ');
+
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+  data.tests.forEach((t, i) => {
+    const sev = (t.severity || 'green').toLowerCase();
+    const card = document.createElement('div');
+    card.className = `test-card c-${sev}`;
+    card.style.animationDelay = `${0.05 + i * 0.05}s`;
+    card.innerHTML = `
+      <div class="card-top">
+        <div><div class="card-plain-name">${esc(t.plain_name)}</div><div class="card-original-name">${esc(t.original_name)}</div></div>
+        <span class="severity-badge pill-${sev}">${EMOJI[sev]||''} ${esc(t.severity_label)}</span>
+      </div>
+      <div class="card-divider"></div>
+      <div class="card-value-row">
+        <span class="card-value">${esc(t.value)}</span>
+        <span class="card-range">Normal: ${esc(t.reference_range)}</span>
+      </div>
+      <span class="status-pill pill-${sev}">${ARROW[t.status]||''} ${esc(t.status)}</span>
+      <p class="card-explanation">${esc(t.explanation)}</p>`;
+    grid.appendChild(card);
+  });
+  showScreen('results');
+}
+
+// ── PDF EXPORT ──
+async function exportPDF() {
+  if (!lastResults) return;
+  const btn = document.getElementById('exportBtn');
+  btn.textContent = '⏳ Generating...';
+  btn.disabled = true;
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, margin = 20;
+    let y = margin;
+
+    // Colors
+    const GREEN = [22, 101, 52], YELLOW = [133, 77, 14], RED = [153, 27, 27];
+    const GREEN_BG = [240, 253, 244], YELLOW_BG = [254, 252, 232], RED_BG = [255, 241, 242];
+    const ACCENT = [26, 92, 58];
+
+    const sevColor = sev => sev === 'green' ? GREEN : sev === 'yellow' ? YELLOW : RED;
+    const sevBg = sev => sev === 'green' ? GREEN_BG : sev === 'yellow' ? YELLOW_BG : RED_BG;
+
+    // Header
+    doc.setFillColor(26, 92, 58);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('💊 ReportTalk', margin, 17);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Your Lab Report Results', margin, 24);
+    doc.text(new Date().toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric'}), W - margin, 24, { align: 'right' });
+
+    y = 38;
+
+    // Overall summary box
+    const summaryLines = doc.splitTextToSize(lastResults.overall_summary || '', W - margin * 2 - 10);
+    const summaryH = 14 + summaryLines.length * 5.5;
+    doc.setFillColor(...GREEN_BG);
+    doc.setDrawColor(...ACCENT);
+    doc.setLineWidth(0.8);
+    doc.rect(margin, y, W - margin * 2, summaryH, 'FD');
+    doc.setLineWidth(1.5);
+    doc.setDrawColor(...ACCENT);
+    doc.line(margin, y, margin, y + summaryH);
+    doc.setTextColor(...ACCENT);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('🩺  OVERALL PICTURE', margin + 4, y + 7);
+    doc.setTextColor(17, 16, 16);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(summaryLines, margin + 4, y + 13);
+    y += summaryH + 8;
+
+    // Test cards
+    for (const t of lastResults.tests) {
+      const sev = (t.severity || 'green').toLowerCase();
+      const expLines = doc.splitTextToSize(t.explanation || '', W - margin * 2 - 14);
+      const cardH = 38 + expLines.length * 5.5;
+
+      // Page break if needed
+      if (y + cardH > 280) { doc.addPage(); y = margin; }
+
+      // Card background
+      doc.setFillColor(...sevBg(sev));
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, W - margin * 2, cardH, 2, 2, 'FD');
+
+      // Left accent bar
+      doc.setFillColor(...sevColor(sev));
+      doc.rect(margin, y, 3, cardH, 'F');
+
+      const cx = margin + 7;
+
+      // Plain name
+      doc.setTextColor(17, 16, 16);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.plain_name || '', cx, y + 9);
+
+      // Original name
+      doc.setTextColor(90, 86, 80);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text((t.original_name || '').toUpperCase(), cx, y + 15);
+
+      // Severity badge top right
+      const badgeLabel = `${t.severity_label || ''}`;
+      const badgeX = W - margin - 4;
+      doc.setFontSize(8);
+      doc.setTextColor(...sevColor(sev));
+      doc.setFont('helvetica', 'bold');
+      doc.text(badgeLabel, badgeX, y + 9, { align: 'right' });
+
+      // Divider
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.line(cx, y + 18, W - margin - 4, y + 18);
+
+      // Value and range
+      doc.setTextColor(17, 16, 16);
+      doc.setFontSize(13);
+      doc.setFont('courier', 'bold');
+      doc.text(t.value || '', cx, y + 26);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(90, 86, 80);
+      doc.text(`Normal: ${t.reference_range || 'N/A'}`, W - margin - 4, y + 26, { align: 'right' });
+
+      // Status pill
+      const arrow = t.status === 'LOW' ? '▼' : t.status === 'HIGH' ? '▲' : '—';
+      doc.setFontSize(8);
+      doc.setFont('courier', 'bold');
+      doc.setTextColor(...sevColor(sev));
+      doc.text(`${arrow} ${t.status}`, cx, y + 33);
+
+      // Explanation
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(90, 86, 80);
+      doc.text(expLines, cx, y + 39);
+
+      y += cardH + 5;
+    }
+
+    // Footer on last page
+    if (y < 270) {
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.line(margin, 282, W - margin, 282);
+      doc.setFontSize(7.5);
+      doc.setTextColor(150, 150, 150);
+      doc.setFont('helvetica', 'normal');
+      doc.text('ReportTalk · For educational purposes only · Always consult a qualified doctor for medical decisions.', W/2, 287, { align: 'center' });
+    }
+
+    doc.save('ReportTalk-Results.pdf');
+  } catch(e) {
+    console.error('PDF export error:', e);
+    alert('PDF export failed: ' + e.message);
+  }
+
+  btn.innerHTML = '📥 Save as PDF';
+  btn.disabled = false;
+}
+
+// ── ERROR ──
+function showError(type, title, msg) {
+  const card = document.getElementById('errorCard');
+  card.className = 'error-card ' + (type === 'not-report' ? 'type-not-report' : 'type-api');
+  document.getElementById('errorIcon').textContent = type === 'not-report' ? '⚠️' : '😔';
+  document.getElementById('errorTitle').textContent = title;
+  document.getElementById('errorMsg').textContent = msg;
+  showScreen('error');
+}
+
+// ── RESET ──
+function resetApp() {
+  selectedFile = null; fileInput.value = '';
+  document.getElementById('previewWrapper').style.display = 'none';
+  document.getElementById('uploadPrompt').style.display = 'flex';
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('previewCanvas').style.display = 'none';
+  uploadZone.classList.remove('has-file', 'drag-over');
+  analyseBtn.style.display = 'none';
+  document.getElementById('cardsGrid').innerHTML = '';
+  lastResults = null;
+  showScreen('landing');
+}
+
+// ── DEMO ──
+function loadDemo() {
+  renderResults({
+    overall_summary: "Most of your results are within normal range — immune system and kidneys look healthy. Haemoglobin is slightly low and Vitamin D needs attention; mention these to your doctor at your next visit.",
+    tests: [
+      {original_name:"Haemoglobin",plain_name:"Oxygen Carrying Level",value:"10.8 g/dL",reference_range:"13–17 g/dL",status:"LOW",severity:"yellow",severity_label:"Keep Watch",explanation:"Slightly low — eat more iron-rich foods like spinach and lentils."},
+      {original_name:"WBC Count",plain_name:"Infection Fighting Cells",value:"7.2 ×10³/µL",reference_range:"4–11 ×10³/µL",status:"NORMAL",severity:"green",severity_label:"All Good",explanation:"Immune system looks healthy with no signs of infection."},
+      {original_name:"Platelet Count",plain_name:"Blood Clotting Cells",value:"245 ×10³/µL",reference_range:"150–400 ×10³/µL",status:"NORMAL",severity:"green",severity_label:"All Good",explanation:"Blood clotting is normal — no risk."},
+      {original_name:"Fasting Blood Glucose",plain_name:"Blood Sugar Level",value:"118 mg/dL",reference_range:"70–110 mg/dL",status:"HIGH",severity:"yellow",severity_label:"Keep Watch",explanation:"Slightly above normal — reduce sugary drinks and mention to doctor."},
+      {original_name:"Serum Creatinine",plain_name:"Kidney Health Marker",value:"0.9 mg/dL",reference_range:"0.6–1.2 mg/dL",status:"NORMAL",severity:"green",severity_label:"All Good",explanation:"Kidneys filtering waste normally."},
+      {original_name:"TSH",plain_name:"Thyroid Activity Level",value:"2.1 mIU/L",reference_range:"0.4–4.0 mIU/L",status:"NORMAL",severity:"green",severity_label:"All Good",explanation:"Thyroid working perfectly — energy and metabolism balanced."},
+      {original_name:"Vitamin D (25-OH)",plain_name:"Vitamin D Level",value:"14 ng/mL",reference_range:"30–100 ng/mL",status:"LOW",severity:"red",severity_label:"See Doctor",explanation:"Very low — affects bones and immunity. Ask doctor about a supplement."},
+      {original_name:"Total Cholesterol",plain_name:"Blood Fat Level",value:"188 mg/dL",reference_range:"<200 mg/dL",status:"NORMAL",severity:"green",severity_label:"All Good",explanation:"Healthy cholesterol — heart under no extra stress."}
+    ]
+  });
+}
+</script>
+</body>
+</html>
