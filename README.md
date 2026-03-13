@@ -57,3 +57,127 @@ Upload a photo or PDF of any lab report — CBC, thyroid, kidney, liver, diabete
 
 ### Steps
 ```bash
+# 1. Clone the repo
+git clone https://github.com/yagamieren09/Report-Talk-AI.git
+cd Report-Talk-AI/reporttalk/backend
+
+# 2. Install dependencies
+npm install
+
+# 3. Create .env file
+cp .env.example .env
+# Fill in your GEMINI_API_KEY, MONGODB_URI, JWT_SECRET
+
+# 4. Start the server
+node server.js
+
+# 5. Open in browser
+# http://localhost:3000
+```
+
+---
+
+## 📁 Project Structure
+```
+reporttalk/
+├── backend/
+│   ├── server.js              ← Node.js server (raw http, no frameworks)
+│   ├── package.json
+│   ├── .env.example
+│   ├── models/
+│   │   ├── User.js            ← User schema with bcrypt password hashing
+│   │   └── Report.js          ← Report schema with tests array
+│   ├── middleware/
+│   │   └── auth.js            ← JWT token verification
+│   ├── routes/
+│   │   ├── auth.js            ← Register, login, me
+│   │   └── reports.js         ← Analyse, history, get, delete
+│   └── services/
+│       └── gemini.js          ← Gemini API with 3-model fallback
+└── frontend/
+    └── index.html             ← Full app UI (single file, no frameworks)
+```
+
+---
+
+## 🔌 API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | No | Create account |
+| POST | `/api/auth/login` | No | Login |
+| GET | `/api/auth/me` | Yes | Get current user |
+| POST | `/api/analyse` | Yes | Analyse a report |
+| GET | `/api/reports` | Yes | Paginated history |
+| GET | `/api/reports/:id` | Yes | Single report |
+| DELETE | `/api/reports/:id` | Yes | Delete report |
+| GET | `/health` | No | Server status |
+
+---
+
+## 🛡️ Rate Limiting
+
+| Route | Limit |
+|-------|-------|
+| All routes | 100 requests / 15 min |
+| Auth routes | 10 requests / 15 min |
+| Analyse route | 20 requests / hour |
+
+---
+
+## 🧠 How It Works
+
+1. User registers and logs in — JWT token saved in browser
+2. Uploads a lab report image or PDF
+3. Frontend sends file to Node.js backend with auth token
+4. Backend verifies token, forwards file to Google Gemini Vision API
+5. Gemini extracts all test values and generates plain English explanations
+6. Results saved to MongoDB under the user's account
+7. Color coded cards returned — 🟢 Normal · 🟡 Watch · 🔴 See Doctor
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | HTML, CSS, Vanilla JS (single file) |
+| Backend | Node.js (no frameworks) |
+| Database | MongoDB Atlas + Mongoose |
+| Auth | JWT + bcryptjs |
+| AI | Google Gemini 2.5 Flash |
+| PDF Preview | PDF.js |
+| PDF Export | jsPDF |
+| Rate Limiting | Custom JS Map implementation |
+| Fonts | Instrument Serif + Geist |
+| Hosting | Render.com |
+
+---
+
+## 🚢 Deployment
+
+Deployed on **Render.com** (free tier).
+
+Environment variables needed:
+```
+GEMINI_API_KEY=your_gemini_key
+MONGODB_URI=your_mongodb_atlas_uri
+JWT_SECRET=your_secret_key
+PORT=3000
+```
+
+---
+
+## ⚠️ Disclaimer
+
+ReportTalk is for **educational purposes only**. It is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified doctor for medical decisions.
+
+---
+
+## 📄 License
+
+MIT License — feel free to use, modify, and share.
+
+---
+
+<p align="center">Built with ❤️ by <a href="https://github.com/yagamieren09">Karthik R</a></p>
