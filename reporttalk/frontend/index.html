@@ -10,8 +10,8 @@
 <!-- jsPDF for export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-  :root{--bg:#F8F6F1;--bg-secondary:#FFFFFF;--ink:#111010;--ink-secondary:#5A5650;--border:#E8E2D8;--accent:#1A5C3A;--accent-hover:#145230;--card-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);--green:#166534;--green-bg:#F0FDF4;--green-border:#BBF7D0;--yellow:#854D0E;--yellow-bg:#FEFCE8;--yellow-border:#FEF08A;--red:#991B1B;--red-bg:#FFF1F2;--red-border:#FECDD3;--upload-bg:#FAFAF8}
-  [data-theme="dark"]{--bg:#0C0C0E;--bg-secondary:#141418;--ink:#F0F0F0;--ink-secondary:#888899;--border:rgba(255,255,255,0.07);--accent:#34D399;--accent-hover:#2EBD87;--card-shadow:0 1px 3px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3);--green:#34D399;--green-bg:rgba(52,211,153,0.08);--green-border:rgba(52,211,153,0.2);--yellow:#FBBF24;--yellow-bg:rgba(251,191,36,0.08);--yellow-border:rgba(251,191,36,0.2);--red:#F87171;--red-bg:rgba(248,113,113,0.08);--red-border:rgba(248,113,113,0.2);--upload-bg:rgba(255,255,255,0.02)}
+  :root{--bg:#F8F6F1;--bg-secondary:#FFFFFF;--ink:#111010;--ink-secondary:#5A5650;--border:#E8E2D8;--accent:#1A5C3A;--accent-hover:#145230;--card-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);--green:#166534;--green-bg:#F0FDF4;--green-border:#BBF7D0;--yellow:#854D0E;--yellow-bg:#FEFCE8;--yellow-border:#FEF08A;--red:#991B1B;--red-bg:#FFF1F2;--red-border:#FECDD3;--upload-bg:#FAFAF8;--input-bg:#FFFFFF}
+  [data-theme="dark"]{--bg:#0C0C0E;--bg-secondary:#141418;--ink:#F0F0F0;--ink-secondary:#888899;--border:rgba(255,255,255,0.07);--accent:#34D399;--accent-hover:#2EBD87;--card-shadow:0 1px 3px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3);--green:#34D399;--green-bg:rgba(52,211,153,0.08);--green-border:rgba(52,211,153,0.2);--yellow:#FBBF24;--yellow-bg:rgba(251,191,36,0.08);--yellow-border:rgba(251,191,36,0.2);--red:#F87171;--red-bg:rgba(248,113,113,0.08);--red-border:rgba(248,113,113,0.2);--upload-bg:rgba(255,255,255,0.02);--input-bg:rgba(255,255,255,0.05)}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;transition:background-color 0.3s ease,border-color 0.3s ease,color 0.2s ease}
   body{font-family:'Geist',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
   nav{position:fixed;top:0;left:0;right:0;height:56px;background:var(--bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
@@ -97,6 +97,40 @@
   footer{text-align:center;margin-top:64px;padding:28px 0 40px;border-top:1px solid var(--border)}
   .footer-name{font-family:'Instrument Serif',serif;font-size:14px;color:var(--ink-secondary);margin-bottom:5px;opacity:0.6}
   .footer-disc{font-size:11px;color:var(--ink-secondary);opacity:0.45;line-height:1.6}
+  .auth-card{max-width:400px;margin:80px auto 40px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;padding:32px 28px;box-shadow:var(--card-shadow)}
+  .auth-header{text-align:center;margin-bottom:28px}
+  .auth-logo{font-family:'Instrument Serif',serif;font-size:32px;color:var(--ink);letter-spacing:-0.01em;margin-bottom:4px}
+  .auth-tagline{font-size:14px;color:var(--ink-secondary)}
+  .auth-form{display:flex;flex-direction:column;gap:16px}
+  .auth-label{font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;text-transform:uppercase;color:var(--ink-secondary);letter-spacing:0.05em;margin-bottom:6px;display:block}
+  .auth-input{width:100%;height:44px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--ink);padding:0 14px;font-family:'Geist',sans-serif;font-size:14px;transition:all 0.2s ease}
+  .auth-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--green-bg)}
+  .auth-error{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:8px;padding:12px 14px;font-size:13px;display:none;margin-bottom:16px}
+  .auth-switch{text-align:center;margin-top:24px;font-size:13px;color:var(--ink-secondary)}
+  .auth-switch a{color:var(--accent);text-decoration:none;font-weight:500;cursor:pointer}
+  .auth-switch a:hover{text-decoration:underline}
+  .history-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+  .history-title{font-family:'Instrument Serif',serif;font-size:32px;color:var(--ink);letter-spacing:-0.02em}
+  .btn-new{height:38px;padding:0 16px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Geist',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s ease}
+  .btn-new:hover{background:var(--accent-hover);transform:translateY(-1px)}
+  .history-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.2s ease;margin-bottom:12px;text-align:left;width:100%;font-family:'Geist',sans-serif}
+  .history-card:hover{transform:translateY(-2px);box-shadow:var(--card-shadow);border-color:var(--accent)}
+  .history-icon{width:40px;height:40px;border-radius:10px;background:var(--green-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .history-content{flex:1;min-width:0}
+  .history-type{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:4px}
+  .history-summary{font-size:13px;color:var(--ink-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+  .history-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .history-date{font-size:12px;color:var(--ink-secondary);text-align:right}
+  .btn-del{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s ease}
+  @media(hover:none){.btn-del{opacity:1}}
+  .history-card:hover .btn-del{opacity:1}
+  .btn-del:hover{background:var(--red);color:#fff}
+  .pagination{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}
+  .btn-page{background:transparent;border:1px solid var(--border);border-radius:8px;height:32px;padding:0 12px;color:var(--ink);cursor:pointer;font-family:'Geist',sans-serif;font-size:13px}
+  .btn-page:disabled{opacity:0.5;cursor:not-allowed}
+  .page-info{font-size:13px;color:var(--ink-secondary)}
+  .empty-state{text-align:center;padding:48px 20px;background:var(--bg-secondary);border:1px dashed var(--border);border-radius:16px}
+  .hidden{display:none!important}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -107,6 +141,9 @@
 <nav>
   <div class="nav-logo">💊 ReportTalk</div>
   <div class="nav-right">
+    <span id="navGreeting" class="server-status hidden" style="border:none"></span>
+    <button id="navHistoryBtn" class="btn-ghost hidden" style="height:32px;font-size:12px" onclick="showHistory()">History</button>
+    <button id="navLogoutBtn" class="btn-ghost hidden" style="height:32px;font-size:12px" onclick="logout()">Log out</button>
     <div class="server-status" id="serverStatus">
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">checking...</span>
@@ -116,8 +153,76 @@
 </nav>
 
 <main>
+  <!-- LOGIN -->
+  <section id="loginScreen" class="screen">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo">💊 ReportTalk</div>
+        <p class="auth-tagline">Log in to your account</p>
+      </div>
+      <div id="loginError" class="auth-error"></div>
+      <div class="auth-form">
+        <div>
+          <label class="auth-label">Email</label>
+          <input type="email" id="loginEmail" class="auth-input" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="auth-label">Password</label>
+          <input type="password" id="loginPassword" class="auth-input" placeholder="••••••••">
+        </div>
+        <button class="btn-export" style="width:100%;height:44px;justify-content:center;margin-top:8px;font-size:15px" onclick="doLogin()">Log in</button>
+      </div>
+      <div class="auth-switch">
+        No account? <a onclick="showScreen('register')">Create one →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- REGISTER -->
+  <section id="registerScreen" class="screen">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo">💊 ReportTalk</div>
+        <p class="auth-tagline">Create an account</p>
+      </div>
+      <div id="registerError" class="auth-error"></div>
+      <div class="auth-form">
+        <div>
+          <label class="auth-label">Name</label>
+          <input type="text" id="registerName" class="auth-input" placeholder="John Doe">
+        </div>
+        <div>
+          <label class="auth-label">Email</label>
+          <input type="email" id="registerEmail" class="auth-input" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="auth-label">Password</label>
+          <input type="password" id="registerPassword" class="auth-input" placeholder="••••••••">
+        </div>
+        <button class="btn-export" style="width:100%;height:44px;justify-content:center;margin-top:8px;font-size:15px" onclick="doRegister()">Create account</button>
+      </div>
+      <div class="auth-switch">
+        Already have an account? <a onclick="showScreen('login')">Log in →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="historyScreen" class="screen">
+    <div class="history-header">
+      <h2 class="history-title">Report History</h2>
+      <button class="btn-new" onclick="showScreen('landing')">+ New Report</button>
+    </div>
+    <div id="historyList"></div>
+    <div class="pagination" id="historyPagination">
+      <button class="btn-page" id="btnPrevPage" onclick="changePage(-1)">← Prev</button>
+      <span class="page-info" id="pageInfo">Page 1 of 1</span>
+      <button class="btn-page" id="btnNextPage" onclick="changePage(1)">Next →</button>
+    </div>
+  </section>
+
   <!-- LANDING -->
-  <section id="landingScreen" class="screen active">
+  <section id="landingScreen" class="screen">
     <div class="hero">
       <p class="hero-eyebrow">Secure Backend · PDF Support · Free</p>
       <h1>Understand your<br><em>lab report.</em></h1>
@@ -177,6 +282,7 @@
       <div class="results-actions">
         <button class="btn-export" onclick="exportPDF()" id="exportBtn">📥 Save as PDF</button>
         <button class="btn-ghost" onclick="resetApp()">↩ New Report</button>
+        <button class="btn-ghost hidden" id="resultsHistoryBtn" onclick="showHistory()">📋 History</button>
       </div>
     </div>
     <div class="summary-card" id="summaryCard">
@@ -305,6 +411,131 @@ analyseBtn.addEventListener('click', async () => {
   await runAnalysis();
 });
 
+// ── AUTH & USER ──
+function getToken() { return localStorage.getItem('token'); }
+function getUser() { const u = localStorage.getItem('user'); return u ? JSON.parse(u) : null; }
+function setAuth(token, user) {
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
+  updateNav(user);
+}
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  updateNav(null);
+  showScreen('login');
+}
+function updateNav(user) {
+  const isAuth = !!user;
+  document.getElementById('navGreeting').textContent = isAuth ? `Hi, ${user.name}` : '';
+  document.getElementById('navGreeting').classList.toggle('hidden', !isAuth);
+  document.getElementById('navHistoryBtn').classList.toggle('hidden', !isAuth);
+  document.getElementById('navLogoutBtn').classList.toggle('hidden', !isAuth);
+  document.getElementById('resultsHistoryBtn').classList.toggle('hidden', !isAuth);
+}
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  const user = getUser();
+  updateNav(user);
+  if (getToken()) showScreen('landing');
+  else showScreen('login');
+});
+
+async function doLogin() {
+  const e=document.getElementById('loginEmail').value, p=document.getElementById('loginPassword').value, err=document.getElementById('loginError');
+  err.style.display='none';
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/login`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email:e, password:p}) });
+    const d = await r.json();
+    if(!r.ok) { err.textContent = d.error || 'Login failed'; err.style.display='block'; return; }
+    setAuth(d.token, d.user); showScreen('landing');
+  } catch(e) { err.textContent='Network error'; err.style.display='block'; }
+}
+
+async function doRegister() {
+  const n=document.getElementById('registerName').value, e=document.getElementById('registerEmail').value, p=document.getElementById('registerPassword').value, err=document.getElementById('registerError');
+  err.style.display='none';
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/register`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name:n, email:e, password:p}) });
+    const d = await r.json();
+    if(!r.ok) { err.textContent = d.error || 'Registration failed'; err.style.display='block'; return; }
+    setAuth(d.token, d.user); showScreen('landing');
+  } catch(e) { err.textContent='Network error'; err.style.display='block'; }
+}
+
+document.getElementById('loginPassword').addEventListener('keypress', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('registerPassword').addEventListener('keypress', e => { if(e.key==='Enter') doRegister(); });
+
+let currentPage = 1;
+async function showHistory(page = 1) {
+  const token = getToken(); if(!token) return logout();
+  currentPage = page;
+  try {
+    const r = await fetch(`${API_BASE}/api/reports?page=${page}`, { headers: {'Authorization':`Bearer ${token}`} });
+    if(r.status===401) return logout();
+    const d = await r.json();
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    if(d.reports.length === 0) {
+      list.innerHTML = `<div class="empty-state">No reports yet. Click + New Report to analyze your first one.</div>`;
+    } else {
+      d.reports.forEach(rp => {
+        const icon = rp.file_type === 'application/pdf' ? '📄' : '🖼️';
+        const date = new Date(rp.createdAt).toLocaleDateString() + ' ' + new Date(rp.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const attnHtml = rp.attention_count > 0 
+          ? `<span class="severity-badge pill-yellow" style="font-size:10px">🟡 ${rp.attention_count} attention</span>`
+          : `<span class="severity-badge pill-green" style="font-size:10px">🟢 All normal ✓</span>`;
+        list.innerHTML += `
+          <button class="history-card" onclick="loadReport('${rp._id}')">
+            <div class="history-icon">${icon}</div>
+            <div class="history-content">
+              <div class="history-type">${rp.report_type || 'Unknown'}</div>
+              <div class="history-summary">${rp.overall_summary || 'No summary available.'}</div>
+              <div class="history-meta">
+                <span class="status-pill c-green" style="font-size:10px">${rp.total_tests} tests</span>
+                ${attnHtml}
+              </div>
+            </div>
+            <div class="history-date">${date.replace(' ', '<br>')}</div>
+            <div class="btn-del" onclick="event.stopPropagation(); deleteReport('${rp._id}', event)">🗑</div>
+          </button>
+        `;
+      });
+    }
+    document.getElementById('btnPrevPage').disabled = d.page <= 1;
+    document.getElementById('btnNextPage').disabled = d.page >= d.totalPages;
+    document.getElementById('pageInfo').textContent = d.totalPages > 0 ? `Page ${d.page} of ${d.totalPages}` : 'Page 1 of 1';
+    showScreen('history');
+  } catch(e) { console.error(e); }
+}
+
+async function changePage(delta) { showHistory(currentPage + delta); }
+
+async function deleteReport(id, event) {
+  event.stopPropagation();
+  if(!confirm('Are you sure you want to delete this report?')) return;
+  const token = getToken(); if(!token) return logout();
+  try {
+    const r = await fetch(`${API_BASE}/api/reports/${id}`, { method: 'DELETE', headers: {'Authorization':`Bearer ${token}`} });
+    if(r.status===401) return logout();
+    showHistory(currentPage);
+  } catch(e) { console.error(e); }
+}
+
+async function loadReport(id) {
+  const token = getToken(); if(!token) return logout();
+  showScreen('loading'); startMsgs();
+  try {
+    const r = await fetch(`${API_BASE}/api/reports/${id}`, { headers: {'Authorization':`Bearer ${token}`} });
+    stopMsgs();
+    if(r.status===401) return logout();
+    if(!r.ok) { showError('api', 'Error', 'Failed to load report'); return; }
+    const d = await r.json();
+    renderResults(d);
+  } catch(e) { stopMsgs(); showError('api', 'Error', 'Cannot reach server'); }
+}
+
 // ── SCREENS ──
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -331,8 +562,13 @@ async function runAnalysis() {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-    const response = await fetch(`${API_BASE}/analyse`, { method: 'POST', body: formData });
+    const headers = {};
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE}/api/analyse`, { method: 'POST', headers, body: formData });
     stopMsgs();
+    if (response.status === 401) return logout();
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));

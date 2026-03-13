@@ -1,68 +1,74 @@
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const mongoose = require('mongoose');
 
-// ── CONFIG ── Put your Gemini API key here
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyBhx59p517Oxi1rxdreSIfmFyL8PYkOOk4';
+// Routes and Middleware
+const authRoutes = require('./routes/auth');
+const reportRoutes = require('./routes/reports');
+const { verifyToken } = require('./middleware/auth');
+const { GEMINI_MODELS } = require('./services/gemini');
+
+// Config
 const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const PROMPT = `[IMPORTANT: Output raw JSON only. No thinking. No explanation. No markdown.]
-You are a medical report reader. Extract ALL test results from this lab report image.
-
-Return ONLY valid JSON, no markdown, no backticks, no extra text:
-
-{"is_medical_report":true,"tests":[{"original_name":"exact name","plain_name":"simple English name","value":"value+unit","reference_range":"range","status":"LOW or NORMAL or HIGH","severity":"green or yellow or red","severity_label":"All Good or Keep Watch or See Doctor","explanation":"One sentence max 20 words."}],"overall_summary":"Two sentences max."}
-
-Severity: green=in range or within 10%, yellow=10-30% outside, red=30%+ outside or critical.
-Not a medical report: {"is_medical_report":false,"tests":[],"overall_summary":""}
-ONLY JSON. Nothing else.`;
-
-const GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-pro'
-];
-
-async function callGemini(base64, mimeType) {
-  let lastErr = '';
-  for (const model of GEMINI_MODELS) {
-    try {
-      const body = JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: PROMPT }
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 8000 }
-      });
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        lastErr = err?.error?.message || `HTTP ${resp.status}`;
-        if (resp.status === 400 || resp.status === 403) break;
-        continue;
-      }
-
-      const data = await resp.json();
-      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      let clean = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      const m = clean.match(/\{[\s\S]*\}/);
-      if (m) clean = m[0];
-      return { ok: true, text: clean, model };
-    } catch (e) {
-      lastErr = e.message;
-    }
-  }
-  return { ok: false, error: lastErr };
+if (!MONGODB_URI) {
+  console.error('\n❌ Fatal Error: MONGODB_URI is missing. Please set it in .env');
+  process.exit(1);
 }
 
+// MongoDB Connection
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
+
+// Rate Limiting
+const rateLimits = new Map();
+
+function checkRateLimit(ip, type, limit, windowMs) {
+  const now = Date.now();
+  if (!rateLimits.has(ip)) rateLimits.set(ip, { general: {}, auth: {}, analyse: {} });
+  const ipLimits = rateLimits.get(ip);
+  const record = ipLimits[type];
+
+  if (!record.resetTime || now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + windowMs;
+    return true; // Allowed
+  }
+
+  if (record.count >= limit) return false; // Rate limited
+
+  record.count++;
+  return true; // Allowed
+}
+
+function handleRateLimit(req, url) {
+  const ip = req.socket.remoteAddress || 'unknown';
+
+  // General: 100 req per 15 min
+  if (!checkRateLimit(ip, 'general', 100, 15 * 60 * 1000)) return false;
+
+  if (url.pathname.startsWith('/api/auth')) {
+    // Auth routes: 10 req per 15 min
+    if (!checkRateLimit(ip, 'auth', 10, 15 * 60 * 1000)) return false;
+  }
+
+  if (url.pathname === '/api/analyse') {
+    // Analyse route: 20 req per 1 hr
+    if (!checkRateLimit(ip, 'analyse', 20, 60 * 60 * 1000)) return false;
+  }
+
+  return true;
+}
+
+// Helpers
 function parseMultipart(body, boundary) {
   const parts = [];
   const boundaryBuf = Buffer.from('--' + boundary);
@@ -71,14 +77,14 @@ function parseMultipart(body, boundary) {
   while (start < body.length) {
     const bStart = body.indexOf(boundaryBuf, start);
     if (bStart === -1) break;
-    const headerStart = bStart + boundaryBuf.length + 2;
+    const headerStart = bStart + boundaryBuf.length + 2; // \r\n after boundary
     const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart);
     if (headerEnd === -1) break;
     const headers = body.slice(headerStart, headerEnd).toString();
-    const dataStart = headerEnd + 4;
+    const dataStart = headerEnd + 4; // \r\n\r\n
     const bEnd = body.indexOf(boundaryBuf, dataStart);
     if (bEnd === -1) break;
-    const data = body.slice(dataStart, bEnd - 2);
+    const data = body.slice(dataStart, bEnd - 2); // -2 for \r\n before next boundary
     parts.push({ headers, data });
     start = bEnd;
   }
@@ -87,8 +93,8 @@ function parseMultipart(body, boundary) {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 function json(res, status, obj) {
@@ -106,72 +112,116 @@ function serveFile(res, filePath, contentType) {
   });
 }
 
+// Request Body Parser
+function parseJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => body += chunk.toString());
+    req.on('end', () => {
+      try { resolve(body ? JSON.parse(body) : {}); }
+      catch (e) { reject(e); }
+    });
+  });
+}
+
+// Main Server
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
   // CORS preflight
   if (req.method === 'OPTIONS') { cors(res); res.writeHead(200); res.end(); return; }
 
-  // Serve frontend
+  // Rate Limiting
+  if (!handleRateLimit(req, url)) {
+    return json(res, 429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  // Frontend Serving
   if (req.method === 'GET' && url.pathname === '/') {
     return serveFile(res, path.join(__dirname, '../frontend/index.html'), 'text/html');
   }
 
   // Health check
   if (req.method === 'GET' && url.pathname === '/health') {
-    return json(res, 200, { status: 'ok', models: GEMINI_MODELS });
+    return json(res, 200, {
+      status: 'ok',
+      db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      uptime: process.uptime(),
+      models: GEMINI_MODELS
+    });
   }
 
-  // Analyse endpoint
-  if (req.method === 'POST' && url.pathname === '/analyse') {
-    const contentType = req.headers['content-type'] || '';
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', async () => {
+  // API Routes
+  if (url.pathname.startsWith('/api/')) {
+
+    // Auth Routes
+    if (req.method === 'POST' && url.pathname === '/api/auth/register') {
       try {
-        const body = Buffer.concat(chunks);
-        let base64, mimeType;
+        const body = await parseJsonBody(req);
+        const result = await authRoutes.register(req, res, body);
+        return json(res, result.status, result.data);
+      } catch (e) { return json(res, 400, { error: 'Invalid JSON' }); }
+    }
 
-        if (contentType.includes('multipart/form-data')) {
-          // PDF or image upload
-          const boundaryMatch = contentType.match(/boundary=(.+)$/);
-          if (!boundaryMatch) return json(res, 400, { error: 'No boundary' });
-          const parts = parseMultipart(body, boundaryMatch[1]);
-          const filePart = parts.find(p => p.headers.includes('filename'));
-          if (!filePart) return json(res, 400, { error: 'No file found' });
+    if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+      try {
+        const body = await parseJsonBody(req);
+        const result = await authRoutes.login(req, res, body);
+        return json(res, result.status, result.data);
+      } catch (e) { return json(res, 400, { error: 'Invalid JSON' }); }
+    }
 
-          const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
-          mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
-
-          // For PDF: convert first page to jpeg using sharp/canvas — use base64 directly
-          // Gemini supports PDF natively!
-          if (mimeType === 'application/pdf') {
-            base64 = filePart.data.toString('base64');
-            mimeType = 'application/pdf';
-          } else {
-            base64 = filePart.data.toString('base64');
-          }
-        } else if (contentType.includes('application/json')) {
-          const parsed = JSON.parse(body.toString());
-          base64 = parsed.base64;
-          mimeType = parsed.mimeType || 'image/jpeg';
-        } else {
-          return json(res, 400, { error: 'Unsupported content type' });
-        }
-
-        const result = await callGemini(base64, mimeType);
-        if (!result.ok) return json(res, 500, { error: result.error });
-
-        let parsed;
-        try { parsed = JSON.parse(result.text); }
-        catch (e) { return json(res, 500, { error: 'Parse failed', raw: result.text.substring(0, 200) }); }
-
-        return json(res, 200, { ...parsed, model: result.model });
-      } catch (e) {
-        return json(res, 500, { error: e.message });
+    // Protected Routes
+    let user = null;
+    try {
+      user = await verifyToken(req);
+    } catch (e) {
+      if (url.pathname === '/api/auth/me' || url.pathname.startsWith('/api/reports') || url.pathname === '/api/analyse') {
+        return json(res, 401, { error: e.message });
       }
-    });
-    return;
+    }
+
+    if (url.pathname === '/api/auth/me' && req.method === 'GET') {
+      const result = await authRoutes.me(req, res, user);
+      return json(res, result.status, result.data);
+    }
+
+    // Reports Routes
+    if (url.pathname === '/api/analyse' && req.method === 'POST') {
+      const contentType = req.headers['content-type'] || '';
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', async () => {
+        try {
+          const body = Buffer.concat(chunks);
+          const result = await reportRoutes.analyse(req, res, user, body, contentType, parseMultipart);
+          return json(res, result.status, result.data);
+        } catch (e) {
+          return json(res, 500, { error: e.message });
+        }
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/reports' && req.method === 'GET') {
+      const result = await reportRoutes.history(req, res, user, url);
+      return json(res, result.status, result.data);
+    }
+
+    const idMatch = url.pathname.match(/^\/api\/reports\/([a-f0-9]{24})$/);
+    if (idMatch) {
+      const reportId = idMatch[1];
+      if (req.method === 'GET') {
+        const result = await reportRoutes.getOne(req, res, user, reportId);
+        return json(res, result.status, result.data);
+      }
+      if (req.method === 'DELETE') {
+        const result = await reportRoutes.deleteOne(req, res, user, reportId);
+        return json(res, result.status, result.data);
+      }
+    }
+
+    return json(res, 404, { error: 'API route not found' });
   }
 
   res.writeHead(404); res.end('Not found');
@@ -180,10 +230,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`\n🏥 ReportTalk Backend running at http://localhost:${PORT}`);
   console.log(`📋 Open http://localhost:${PORT} in your browser`);
-  if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-    console.log('\n⚠️  Set your Gemini API key:');
-    console.log('   Windows: set GEMINI_API_KEY=your_key_here');
-    console.log('   Mac/Linux: export GEMINI_API_KEY=your_key_here');
-    console.log('   Or edit server.js line 5\n');
-  }
 });
