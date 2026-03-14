@@ -73,18 +73,17 @@ function parseMultipart(body, boundary) {
   const parts = [];
   const boundaryBuf = Buffer.from('--' + boundary);
   let start = 0;
-
   while (start < body.length) {
     const bStart = body.indexOf(boundaryBuf, start);
     if (bStart === -1) break;
-    const headerStart = bStart + boundaryBuf.length + 2; // \r\n after boundary
+    const headerStart = bStart + boundaryBuf.length + 2;
     const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart);
     if (headerEnd === -1) break;
     const headers = body.slice(headerStart, headerEnd).toString();
-    const dataStart = headerEnd + 4; // \r\n\r\n
+    const dataStart = headerEnd + 4;
     const bEnd = body.indexOf(boundaryBuf, dataStart);
     if (bEnd === -1) break;
-    const data = body.slice(dataStart, bEnd - 2); // -2 for \r\n before next boundary
+    const data = body.slice(dataStart, bEnd - 2);
     parts.push({ headers, data });
     start = bEnd;
   }

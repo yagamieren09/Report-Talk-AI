@@ -8,17 +8,17 @@ async function analyse(req, res, user, body, contentType, parseMultipart) {
         if (contentType.includes('multipart/form-data')) {
             const boundaryMatch = contentType.match(/boundary=(.+)$/);
             if (!boundaryMatch) return { status: 400, data: { error: 'No boundary' } };
-            const parts = parseMultipart(body, boundaryMatch[1]);
+            const boundary = boundaryMatch[1];
+
+            const parts = parseMultipart(body, boundary);
             const filePart = parts.find(p => p.headers.includes('filename'));
             if (!filePart) return { status: 400, data: { error: 'No file found' } };
 
+            mimeType = filePart.headers.match(/Content-Type:\s*(.+)/i)[1].trim();
+            base64 = filePart.data.toString('base64');
+
             const nameMatch = filePart.headers.match(/filename="([^"]+)"/);
             if (nameMatch) fileName = nameMatch[1];
-
-            const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
-            mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
-
-            base64 = filePart.data.toString('base64');
         } else if (contentType.includes('application/json')) {
             const parsed = JSON.parse(body.toString());
             base64 = parsed.base64;
