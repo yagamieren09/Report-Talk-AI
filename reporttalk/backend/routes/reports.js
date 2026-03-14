@@ -13,7 +13,7 @@ async function analyse(req, res, user, body, contentType, parseMultipart) {
             if (!filePart) return { status: 400, data: { error: 'No file found' } };
 
             const nameMatch = filePart.headers.match(/filename="([^"]+)"/);
-            if (nameMatch) Object.assign(fileName, nameMatch[1]);
+            if (nameMatch) fileName = nameMatch[1];
 
             const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
             mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
