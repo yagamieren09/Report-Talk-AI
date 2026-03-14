@@ -1,26 +1,25 @@
 const Report = require('../models/Report');
 const { callGemini } = require('../services/gemini');
 
-async function analyse(req, res, user, body, contentType, parseMultipart) {
+async function analyse(req, res, user, body, contentType, boundary, parseMultipart) {
     try {
         let base64, mimeType, fileName = 'report';
 
         if (contentType.includes('multipart/form-data')) {
-            const boundaryMatch = contentType.match(/boundary=(.+)$/);
-            if (!boundaryMatch) return { status: 400, data: { error: 'No boundary' } };
-            const boundary = boundaryMatch[1].trim();
+            if (!boundary) return { status: 400, data: { error: 'No boundary' } };
 
             const parts = parseMultipart(body, boundary);
             const filePart = parts.find(p => p.headers.includes('filename'));
             if (!filePart) return { status: 400, data: { error: 'No file found' } };
 
-            const ctMatch = filePart.headers.match(/Content-Type:\s*([^\r\n]+)/i);
+            const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
             mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
             base64 = filePart.data.toString('base64');
 
             const nameMatch = filePart.headers.match(/filename="([^"]+)"/);
-            fileName = nameMatch ? String(nameMatch[1]) : 'report';
-
+            if (nameMatch) {
+                fileName = nameMatch[1];
+            }
         } else if (contentType.includes('application/json')) {
             const parsed = JSON.parse(body.toString());
             base64 = parsed.base64;

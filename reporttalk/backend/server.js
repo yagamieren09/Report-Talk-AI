@@ -193,7 +193,11 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const body = Buffer.concat(chunks);
-          const result = await reportRoutes.analyse(req, res, user, body, contentType, parseMultipart);
+          let boundary = '';
+          if (contentType.includes('boundary=')) {
+            boundary = contentType.split('boundary=')[1];
+          }
+          const result = await reportRoutes.analyse(req, res, user, body, contentType, boundary, parseMultipart);
           return json(res, result.status, result.data);
         } catch (e) {
           return json(res, 500, { error: e.message });
