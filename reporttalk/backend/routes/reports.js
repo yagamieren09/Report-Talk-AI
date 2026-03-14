@@ -1,124 +1,181 @@
+const jwt = require('jsonwebtoken');
 const Report = require('../models/Report');
-const { callGemini } = require('../services/gemini');
 
-async function analyse(req, res, user, body, contentType, boundary, parseMultipart) {
+function verifyToken(req) {
+    const header = req.headers['authorization'];
+    if (!header || !header.startsWith('Bearer ')) throw new Error('No token');
+    const token = header.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded.userId;
+}
+
+function parseMultipart(body, boundary) {
+    const parts = [];
+    const boundaryBuf = Buffer.from('--' + boundary);
+    let start = 0;
+    while (start < body.length) {
+        const bStart = body.indexOf(boundaryBuf, start);
+        if (bStart === -1) break;
+        const headerStart = bStart + boundaryBuf.length + 2;
+        const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), headerStart);
+        if (headerEnd === -1) break;
+        const headers = body.slice(headerStart, headerEnd).toString();
+        const dataStart = headerEnd + 4;
+        const bEnd = body.indexOf(boundaryBuf, dataStart);
+        if (bEnd === -1) break;
+        const data = body.slice(dataStart, bEnd - 2);
+        parts.push({ headers: headers, data: data });
+        start = bEnd;
+    }
+    return parts;
+}
+
+async function analyseReport(req, res) {
     try {
-        let base64, mimeType, fileName = 'report';
-
-        if (contentType.includes('multipart/form-data')) {
-            if (!boundary) return { status: 400, data: { error: 'No boundary' } };
-
-            const parts = parseMultipart(body, boundary);
-            const filePart = parts.find(p => p.headers.includes('filename'));
-            if (!filePart) return { status: 400, data: { error: 'No file found' } };
-
-            const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
-            mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
-            base64 = filePart.data.toString('base64');
-
-            const nameMatch = filePart.headers.match(/filename="([^"]+)"/);
-            if (nameMatch) {
-                fileName = nameMatch[1];
-            }
-        } else if (contentType.includes('application/json')) {
-            const parsed = JSON.parse(body.toString());
-            base64 = parsed.base64;
-            mimeType = parsed.mimeType || 'image/jpeg';
-            fileName = parsed.fileName || 'report';
-        } else {
-            return { status: 400, data: { error: 'Unsupported content type' } };
+        const userId = verifyToken(req);
+        const contentType = req.headers['content-type'] || '';
+        if (!contentType.includes('multipart/form-data')) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Must be multipart/form-data' }));
+            return;
         }
-
-        const result = await callGemini(base64, mimeType);
-        if (!result.ok) return { status: 500, data: { error: result.error } };
-
-        let parsed;
-        try { parsed = JSON.parse(result.text); }
-        catch (e) { return { status: 500, data: { error: 'Parse failed', raw: result.text.substring(0, 200) } }; }
-
-        if (parsed.is_medical_report && user) {
-            const tests = parsed.tests || [];
-            const attention_count = tests.filter(t => t.severity !== 'green').length;
-
-            const reportDoc = await Report.create({
-                userId: user._id,
-                tests: tests,
-                overall_summary: parsed.overall_summary,
-                report_type: parsed.report_type || 'Unknown',
-                total_tests: tests.length,
-                attention_count: attention_count,
-                normal_count: tests.length - attention_count,
-                file_type: mimeType.includes('pdf') ? 'pdf' : 'image',
-                file_name: String(fileName),
-                model_used: result.model
-            });
-            parsed.reportId = reportDoc._id;
+        const boundaryMatch = contentType.split('boundary=');
+        if (!boundaryMatch[1]) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No boundary found' }));
+            return;
         }
-
-        return { status: 200, data: { ...parsed, model: result.model } };
-    } catch (e) {
-        return { status: 500, data: { error: e.message } };
+        const boundary = boundaryMatch[1];
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+            req.on('data', function (chunk) { chunks.push(chunk); });
+            req.on('end', resolve);
+            req.on('error', reject);
+        });
+        const body = Buffer.concat(chunks);
+        const parts = parseMultipart(body, boundary);
+        const filePart = parts.find(function (p) {
+            return p.headers.includes('filename');
+        });
+        if (!filePart) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No file found' }));
+            return;
+        }
+        const ctMatch = filePart.headers.match(/Content-Type:\s*(.+)/i);
+        const mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
+        const base64 = filePart.data.toString('base64');
+        const nameMatch = filePart.headers.match(/filename="(.+?)"/i);
+        const fileName = nameMatch ? nameMatch[1] : 'report';
+        const fileType = mimeType === 'application/pdf' ? 'pdf' : 'image';
+        const { analyseWithGemini } = require('../services/gemini');
+        const result = await analyseWithGemini(base64, mimeType);
+        if (!result.ok) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: result.error }));
+            return;
+        }
+        const data = result.data;
+        if (!data.is_medical_report) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ is_medical_report: false }));
+            return;
+        }
+        const attn = data.tests.filter(function (t) {
+            return t.severity !== 'green';
+        }).length;
+        const report = await Report.create({
+            userId: userId,
+            overall_summary: data.overall_summary,
+            tests: data.tests,
+            report_type: data.report_type || 'Lab Report',
+            file_name: fileName,
+            file_type: fileType,
+            model_used: result.model,
+            total_tests: data.tests.length,
+            attention_count: attn,
+            normal_count: data.tests.length - attn
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            is_medical_report: true,
+            report_id: report._id,
+            overall_summary: data.overall_summary,
+            report_type: data.report_type,
+            tests: data.tests,
+            model: result.model
+        }));
+    } catch (err) {
+        const status = err.message === 'No token' ? 401 : 500;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
     }
 }
 
-async function history(req, res, user, url) {
+async function getReports(req, res) {
     try {
-        const page = parseInt(url.searchParams.get('page')) || 1;
+        const userId = verifyToken(req);
+        const urlParts = req.url.split('?');
+        const params = new URLSearchParams(urlParts[1] || '');
+        const page = parseInt(params.get('page')) || 1;
         const limit = 8;
         const skip = (page - 1) * limit;
-
-        const reports = await Report.find({ userId: user._id })
+        const total = await Report.countDocuments({ userId: userId });
+        const reports = await Report.find({ userId: userId })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
-
-        const total = await Report.countDocuments({ userId: user._id });
-
-        return {
-            status: 200,
-            data: {
-                reports,
-                page,
-                totalPages: Math.ceil(total / limit),
-                total
+            .limit(limit)
+            .select('overall_summary report_type file_name file_type total_tests attention_count normal_count createdAt');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            reports: reports,
+            pagination: {
+                page: page,
+                total: total,
+                pages: Math.ceil(total / limit)
             }
-        };
-    } catch (error) {
-        return { status: 500, data: { error: error.message } };
+        }));
+    } catch (err) {
+        const status = err.message === 'No token' ? 401 : 500;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
     }
 }
 
-async function getOne(req, res, user, id) {
+async function getReport(req, res, id) {
     try {
-        const report = await Report.findOne({ _id: id, userId: user._id });
-        if (!report) return { status: 404, data: { error: 'Report not found' } };
-
-        return {
-            status: 200,
-            data: {
-                is_medical_report: true,
-                report_type: report.report_type,
-                tests: report.tests,
-                overall_summary: report.overall_summary,
-                model: report.model_used,
-                _id: report._id,
-                createdAt: report.createdAt
-            }
-        };
-    } catch (error) {
-        return { status: 500, data: { error: error.message } };
+        const userId = verifyToken(req);
+        const report = await Report.findOne({ _id: id, userId: userId });
+        if (!report) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Report not found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(report));
+    } catch (err) {
+        const status = err.message === 'No token' ? 401 : 500;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
     }
 }
 
-async function deleteOne(req, res, user, id) {
+async function deleteReport(req, res, id) {
     try {
-        const result = await Report.findOneAndDelete({ _id: id, userId: user._id });
-        if (!result) return { status: 404, data: { error: 'Report not found' } };
-
-        return { status: 200, data: { success: true } };
-    } catch (error) {
-        return { status: 500, data: { error: error.message } };
+        const userId = verifyToken(req);
+        const report = await Report.findOneAndDelete({ _id: id, userId: userId });
+        if (!report) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Report not found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Deleted' }));
+    } catch (err) {
+        const status = err.message === 'No token' ? 401 : 500;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
     }
 }
 
-module.exports = { analyse, history, getOne, deleteOne };
+module.exports = { analyseReport, getReports, getReport, deleteReport };

@@ -187,40 +187,21 @@ const server = http.createServer(async (req, res) => {
 
     // Reports Routes
     if (url.pathname === '/api/analyse' && req.method === 'POST') {
-      const contentType = req.headers['content-type'] || '';
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', async () => {
-        try {
-          const body = Buffer.concat(chunks);
-          let boundary = '';
-          if (contentType.includes('boundary=')) {
-            boundary = contentType.split('boundary=')[1];
-          }
-          const result = await reportRoutes.analyse(req, res, user, body, contentType, boundary, parseMultipart);
-          return json(res, result.status, result.data);
-        } catch (e) {
-          return json(res, 500, { error: e.message });
-        }
-      });
-      return;
+      return reportRoutes.analyseReport(req, res);
     }
 
     if (url.pathname === '/api/reports' && req.method === 'GET') {
-      const result = await reportRoutes.history(req, res, user, url);
-      return json(res, result.status, result.data);
+      return reportRoutes.getReports(req, res);
     }
 
     const idMatch = url.pathname.match(/^\/api\/reports\/([a-f0-9]{24})$/);
     if (idMatch) {
       const reportId = idMatch[1];
       if (req.method === 'GET') {
-        const result = await reportRoutes.getOne(req, res, user, reportId);
-        return json(res, result.status, result.data);
+        return reportRoutes.getReport(req, res, reportId);
       }
       if (req.method === 'DELETE') {
-        const result = await reportRoutes.deleteOne(req, res, user, reportId);
-        return json(res, result.status, result.data);
+        return reportRoutes.deleteReport(req, res, reportId);
       }
     }
 

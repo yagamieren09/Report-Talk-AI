@@ -17,7 +17,7 @@ const GEMINI_MODELS = [
     'gemini-2.5-pro'
 ];
 
-async function callGemini(base64, mimeType) {
+async function analyseWithGemini(base64, mimeType) {
     let lastErr = '';
     for (const model of GEMINI_MODELS) {
         try {
@@ -50,7 +50,10 @@ async function callGemini(base64, mimeType) {
             let clean = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
             const m = clean.match(/\{[\s\S]*\}/);
             if (m) clean = m[0];
-            return { ok: true, text: clean, model };
+
+            // Parse here so result.data is available
+            const parsed = JSON.parse(clean);
+            return { ok: true, data: parsed, model };
         } catch (e) {
             lastErr = e.message;
         }
@@ -58,4 +61,4 @@ async function callGemini(base64, mimeType) {
     return { ok: false, error: lastErr };
 }
 
-module.exports = { callGemini, GEMINI_MODELS };
+module.exports = { analyseWithGemini, GEMINI_MODELS };
