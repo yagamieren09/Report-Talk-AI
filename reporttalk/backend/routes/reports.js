@@ -8,17 +8,19 @@ async function analyse(req, res, user, body, contentType, parseMultipart) {
         if (contentType.includes('multipart/form-data')) {
             const boundaryMatch = contentType.match(/boundary=(.+)$/);
             if (!boundaryMatch) return { status: 400, data: { error: 'No boundary' } };
-            const boundary = boundaryMatch[1];
+            const boundary = boundaryMatch[1].trim();
 
             const parts = parseMultipart(body, boundary);
             const filePart = parts.find(p => p.headers.includes('filename'));
             if (!filePart) return { status: 400, data: { error: 'No file found' } };
 
-            mimeType = filePart.headers.match(/Content-Type:\s*(.+)/i)[1].trim();
+            const ctMatch = filePart.headers.match(/Content-Type:\s*([^\r\n]+)/i);
+            mimeType = ctMatch ? ctMatch[1].trim() : 'image/jpeg';
             base64 = filePart.data.toString('base64');
 
             const nameMatch = filePart.headers.match(/filename="([^"]+)"/);
-            if (nameMatch) fileName = nameMatch[1];
+            fileName = nameMatch ? String(nameMatch[1]) : 'report';
+
         } else if (contentType.includes('application/json')) {
             const parsed = JSON.parse(body.toString());
             base64 = parsed.base64;
@@ -35,7 +37,6 @@ async function analyse(req, res, user, body, contentType, parseMultipart) {
         try { parsed = JSON.parse(result.text); }
         catch (e) { return { status: 500, data: { error: 'Parse failed', raw: result.text.substring(0, 200) } }; }
 
-        // Save to MongoDB if it's a medical report
         if (parsed.is_medical_report && user) {
             const tests = parsed.tests || [];
             const attention_count = tests.filter(t => t.severity !== 'green').length;
@@ -48,11 +49,11 @@ async function analyse(req, res, user, body, contentType, parseMultipart) {
                 total_tests: tests.length,
                 attention_count: attention_count,
                 normal_count: tests.length - attention_count,
-                file_type: mimeType,
-                file_name: typeof fileName === 'object' ? 'report' : fileName, // fallback
+                file_type: mimeType.includes('pdf') ? 'pdf' : 'image',
+                file_name: String(fileName),
                 model_used: result.model
             });
-            parsed.reportId = reportDoc._id; // return ID to frontend
+            parsed.reportId = reportDoc._id;
         }
 
         return { status: 200, data: { ...parsed, model: result.model } };
@@ -70,8 +71,7 @@ async function history(req, res, user, url) {
         const reports = await Report.find({ userId: user._id })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit)
-            .select('-tests.explanation'); // exclude large explanation field for list view if desired, but let's keep it simple
+            .limit(limit);
 
         const total = await Report.countDocuments({ userId: user._id });
 
@@ -94,7 +94,6 @@ async function getOne(req, res, user, id) {
         const report = await Report.findOne({ _id: id, userId: user._id });
         if (!report) return { status: 404, data: { error: 'Report not found' } };
 
-        // Format to match Gemini output structure for frontend compatibility
         return {
             status: 200,
             data: {
